@@ -6,7 +6,7 @@ import (
 	"log"
 )
 
-// @@@SNIPSTART money-transfer-project-template-go-activity-withdraw
+// @@@SNIPSTART learn-temporal-activity-withdraw
 func Withdraw(ctx context.Context, data PaymentDetails) (string, error) {
 	log.Printf("Withdrawing $%d from account %s.\n\n",
 		data.Amount,
@@ -21,7 +21,7 @@ func Withdraw(ctx context.Context, data PaymentDetails) (string, error) {
 
 // @@@SNIPEND
 
-// @@@SNIPSTART money-transfer-project-template-go-activity-deposit
+// @@@SNIPSTART learn-temporal-activity-deposit
 func Deposit(ctx context.Context, data PaymentDetails) (string, error) {
 	log.Printf("Depositing $%d into account %s.\n\n",
 		data.Amount,
@@ -38,7 +38,7 @@ func Deposit(ctx context.Context, data PaymentDetails) (string, error) {
 
 // @@@SNIPEND
 
-// @@@SNIPSTART money-transfer-project-template-go-activity-refund
+// @@@SNIPSTART learn-temporal-activity-refund
 func Refund(ctx context.Context, data PaymentDetails) (string, error) {
 	log.Printf("Refunding $%v back into account %v.\n\n",
 		data.Amount,

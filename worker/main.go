@@ -6,10 +6,10 @@ import (
 	"go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/worker"
 
-	"money-transfer-project-template-go/app"
+	"learn-temporal/app"
 )
 
-// @@@SNIPSTART money-transfer-project-template-go-worker
+// @@@SNIPSTART learn-temporal-worker
 func main() {
 
 	c, err := client.Dial(client.Options{})

@@ -1,11 +1,11 @@
 package app
 
-// @@@SNIPSTART money-transfer-project-template-go-shared-task-queue
+// @@@SNIPSTART learn-temporal-shared-task-queue
 const MoneyTransferTaskQueueName = "TRANSFER_MONEY_TASK_QUEUE"
 
 // @@@SNIPEND
 
-// @@@SNIPSTART money-transfer-project-template-go-transferdetails
+// @@@SNIPSTART learn-temporal-transferdetails
 type PaymentDetails struct {
 	SourceAccount string
 	TargetAccount string
