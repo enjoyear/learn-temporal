@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"fmt"
 	"go.temporal.io/sdk/workflow"
 	"log"
 	"time"
@@ -14,12 +15,17 @@ type BulletinBoardPost struct {
 	NotificationType  string
 }
 
-func PostRuleMatchingTask(ctx context.Context, data BulletinBoardPost) (string, error) {
-	log.Printf(">>>> PostRuleMatchingTask running for %s", data.Title)
-	return "Done", nil
+func PostRuleMatchingTask(ctx context.Context, post BulletinBoardPost,
+	ruleStartInclusive int64, ruleEndExclusive int64) (string, error) {
+	log.Printf(">> >> Executing PostRuleMatchingTask for Post %s with rules [%d, %d)",
+		post.Title, ruleStartInclusive, ruleEndExclusive)
+
+	return fmt.Sprintf("Done for [%d, %d)", ruleStartInclusive, ruleEndExclusive), nil
 }
-func PostRuleMatching(ctx workflow.Context, input BulletinBoardPost) (string, error) {
-	log.Printf(">>>> Workflow starts")
+func PostRuleMatching(ctx workflow.Context, input BulletinBoardPost,
+	ruleStartInclusive int64, ruleEndExclusive int64, ruleSplitSize int64) (string, error) {
+
+	log.Printf(">> Workflow starts")
 	options := workflow.ActivityOptions{
 		StartToCloseTimeout: time.Minute,
 	}
@@ -27,13 +33,28 @@ func PostRuleMatching(ctx workflow.Context, input BulletinBoardPost) (string, er
 	// Apply the options.
 	ctx = workflow.WithActivityOptions(ctx, options)
 
-	var taskStatus string
-	taskError := workflow.ExecuteActivity(ctx, PostRuleMatchingTask, input).Get(ctx, &taskStatus)
+	for i := ruleStartInclusive; i < ruleEndExclusive; i += ruleSplitSize {
+		ruleStart := i
+		ruleEnd := min(ruleEndExclusive, ruleStart+ruleSplitSize)
+		log.Printf(">> Submitting activity for Post %s with rules [%d, %d)",
+			input.Title, ruleStart, ruleEnd)
 
-	if taskError != nil {
-		return "", taskError
+		var taskStatus string
+		taskError := workflow.ExecuteActivity(ctx, PostRuleMatchingTask, input, ruleStart, ruleEnd).Get(ctx, &taskStatus)
+
+		log.Printf(">> Activity submission completed with %s", taskStatus)
+		if taskError != nil {
+			return "", taskError
+		}
 	}
 
-	log.Printf(">>>> Workflow completes")
+	log.Printf(">> Workflow completes")
 	return "Success", nil
+}
+
+func min(x, y int64) int64 {
+	if x < y {
+		return x
+	}
+	return y
 }

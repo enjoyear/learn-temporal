@@ -9,7 +9,6 @@ import (
 	"learn-temporal/app"
 )
 
-// @@@SNIPSTART learn-temporal-worker
 func main() {
 
 	c, err := client.Dial(client.Options{})
@@ -18,13 +17,7 @@ func main() {
 	}
 	defer c.Close()
 
-	w := worker.New(c, app.MoneyTransferTaskQueueName, worker.Options{})
-
-	// This worker hosts both Workflow and Activity functions.
-	w.RegisterWorkflow(app.MoneyTransfer)
-	w.RegisterActivity(app.Withdraw)
-	w.RegisterActivity(app.Deposit)
-	w.RegisterActivity(app.Refund)
+	w := createPostRuleMatchingWorker(c)
 
 	// Start listening to the Task Queue.
 	err = w.Run(worker.InterruptCh())
@@ -33,4 +26,22 @@ func main() {
 	}
 }
 
-// @@@SNIPEND
+func createPostRuleMatchingWorker(c client.Client) worker.Worker {
+	w := worker.New(c, app.PostRuleMatchingTaskQueueName, worker.Options{})
+
+	// This worker hosts both Workflow and Activity functions.
+	w.RegisterWorkflow(app.PostRuleMatching)
+	w.RegisterActivity(app.PostRuleMatchingTask)
+	return w
+}
+
+func createMoneyTransferWorker(c client.Client) worker.Worker {
+	w := worker.New(c, app.MoneyTransferTaskQueueName, worker.Options{})
+
+	// This worker hosts both Workflow and Activity functions.
+	w.RegisterWorkflow(app.MoneyTransfer)
+	w.RegisterActivity(app.Withdraw)
+	w.RegisterActivity(app.Deposit)
+	w.RegisterActivity(app.Refund)
+	return w
+}
