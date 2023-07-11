@@ -9,7 +9,6 @@ import (
 	"learn-temporal/app"
 )
 
-// @@@SNIPSTART learn-temporal-start-workflow
 func main() {
 	// Create the client object just once per process
 	c, err := client.Dial(client.Options{})
@@ -20,6 +19,45 @@ func main() {
 
 	defer c.Close()
 
+	we := executeWorkflowRuleMatching(err, c)
+
+	log.Printf("WorkflowID: %s RunID: %s\n", we.GetID(), we.GetRunID())
+
+	var result string
+
+	err = we.Get(context.Background(), &result)
+
+	if err != nil {
+		log.Fatalln("Unable to get Workflow result:", err)
+	}
+
+	log.Println(result)
+}
+
+func executeWorkflowRuleMatching(err error, c client.Client) client.WorkflowRun {
+	workflowId := "DBB-post-rule-matching"
+
+	input := app.BulletinBoardPost{
+		Title:             "PostTitle",
+		Body:              "events table will be partitioned",
+		PublisherPlatform: "DataBulletinBoard",
+		NotificationType:  "PartitionTable",
+	}
+
+	options := client.StartWorkflowOptions{
+		ID:        workflowId,
+		TaskQueue: app.PostRuleMatchingTaskQueueName,
+	}
+
+	log.Printf("Start rule matching for %s", input)
+
+	we, err := c.ExecuteWorkflow(context.Background(), options, app.PostRuleMatching, input)
+	if err != nil {
+		log.Fatalln("Unable to start the Workflow:", err)
+	}
+	return we
+}
+func executeWorkflowMoneyTransfer(err error, c client.Client) client.WorkflowRun {
 	input := app.PaymentDetails{
 		SourceAccount: "85-150",
 		TargetAccount: "43-812",
@@ -38,18 +76,5 @@ func main() {
 	if err != nil {
 		log.Fatalln("Unable to start the Workflow:", err)
 	}
-
-	log.Printf("WorkflowID: %s RunID: %s\n", we.GetID(), we.GetRunID())
-
-	var result string
-
-	err = we.Get(context.Background(), &result)
-
-	if err != nil {
-		log.Fatalln("Unable to get Workflow result:", err)
-	}
-
-	log.Println(result)
+	return we
 }
-
-// @@@SNIPEND
