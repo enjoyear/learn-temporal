@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"fmt"
+	"go.temporal.io/sdk/activity"
 	"go.temporal.io/sdk/temporal"
 	"go.temporal.io/sdk/workflow"
 	"log"
@@ -17,10 +18,12 @@ type BulletinBoardPost struct {
 	NotificationType  string
 }
 
-const CodeVersion = 2
+const CodeVersion = 3
 
 func PostRuleMatchingTask(ctx context.Context, post BulletinBoardPost,
 	ruleStartInclusive int64, ruleEndExclusive int64) (string, error) {
+	info := activity.GetInfo(ctx)
+	currentAttempt := info.Attempt
 
 	// ToDo: send metrics for retries
 
@@ -28,9 +31,19 @@ func PostRuleMatchingTask(ctx context.Context, post BulletinBoardPost,
 		post.Title, ruleStartInclusive, ruleEndExclusive)
 
 	for i := ruleStartInclusive; i < ruleEndExclusive; i += 1 {
+		if ctx.Err() != nil {
+			// Temporal does not automatically stop the execution of an activity function even when it has reached StartToClose timeout.
+			// The primary reason is that it can't forcibly stop the execution of arbitrary code.
+			// The StartToClose timeout in Temporal merely indicates to the Temporal service how long the activity is allowed to execute
+			// before it's considered failed due to timeout.
+			log.Printf(">> >> [Attempt: %d] Executing rule of ID %d failed due to: %s",
+				currentAttempt, i, ctx.Err().Error())
+			return fmt.Sprintf("Failed for [%d, %d)", ruleStartInclusive, ruleEndExclusive), ctx.Err()
+		}
+
 		if randomNumber := rand.Intn(100); randomNumber < 1 {
-			log.Printf(">> >> Executing rule of ID %d at %s with code version %d",
-				i, time.Now().Format("15:04:05.000"), CodeVersion)
+			log.Printf(">> >> [Attempt: %d] Executing rule of ID %d with code version %d",
+				currentAttempt, i, CodeVersion)
 			time.Sleep(5 * time.Second)
 		}
 	}
@@ -58,12 +71,7 @@ func PostRuleMatching(ctx workflow.Context, input BulletinBoardPost,
 		var taskStatus string
 		taskError := workflow.ExecuteActivity(ctx, PostRuleMatchingTask, input, ruleStart, ruleEnd).Get(ctx, &taskStatus)
 
-		if taskError == nil {
-			log.Printf(">> Activity execution completed with status: %s\n", taskStatus)
-		} else {
-			log.Printf(">> Activity execution failed with error: %s\n", taskError.Error())
-			return "", taskError
-		}
+		log.Printf(">> Activity execution completed with status: %s, error: %s\n", taskStatus, taskError.Error())
 	}
 
 	log.Printf(">> Workflow completes")

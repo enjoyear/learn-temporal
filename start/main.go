@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 
 	"go.temporal.io/sdk/client"
@@ -58,7 +59,7 @@ func executeWorkflowRuleMatching(err error, c client.Client) client.WorkflowRun 
 		input, ruleStart, ruleEnd, ruleSplitSize)
 
 	if err != nil {
-		log.Fatalln("Unable to start the Workflow:", err)
+		log.Fatalln(fmt.Sprintf("Workflow execution %s(%s) failed:", we.GetID(), we.GetRunID()), err)
 	}
 	return we
 }
