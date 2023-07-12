@@ -21,15 +21,13 @@ func main() {
 	defer c.Close()
 
 	we := executeWorkflowRuleMatching(err, c)
-
-	log.Printf("WorkflowID: %s RunID: %s\n", we.GetID(), we.GetRunID())
+	log.Printf("Started WorkflowID: %s RunID: %s\n", we.GetID(), we.GetRunID())
 
 	var result string
-
 	err = we.Get(context.Background(), &result)
 
 	if err != nil {
-		log.Fatalln("Unable to get Workflow result:", err)
+		log.Fatalln(fmt.Sprintf("Workflow execution failed with result '%s'.", result), err)
 	}
 
 	log.Println(result)
@@ -59,7 +57,7 @@ func executeWorkflowRuleMatching(err error, c client.Client) client.WorkflowRun 
 		input, ruleStart, ruleEnd, ruleSplitSize)
 
 	if err != nil {
-		log.Fatalln(fmt.Sprintf("Workflow execution %s(%s) failed:", we.GetID(), we.GetRunID()), err)
+		log.Fatalln(fmt.Sprintf("Unable to start the workflow %s", workflowId), err)
 	}
 	return we
 }
