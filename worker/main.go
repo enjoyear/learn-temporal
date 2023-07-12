@@ -31,7 +31,8 @@ func createPostRuleMatchingWorker(c client.Client) worker.Worker {
 
 	// This worker hosts both Workflow and Activity functions.
 	w.RegisterWorkflow(app.PostRuleMatching)
-	w.RegisterActivity(app.PostRuleMatchingTask)
+	w.RegisterActivity(app.SplitRulesActivity)
+	w.RegisterActivity(app.PostRuleMatchingActivity)
 	return w
 }
 

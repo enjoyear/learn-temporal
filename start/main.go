@@ -36,6 +36,7 @@ func main() {
 func executeWorkflowRuleMatching(err error, c client.Client) client.WorkflowRun {
 	workflowId := "DBB-post-rule-matching"
 	input := app.BulletinBoardPost{
+		PostId:            12,
 		Title:             "PostTitle",
 		Body:              "events table will be partitioned",
 		PublisherPlatform: "DataBulletinBoard",
@@ -50,8 +51,7 @@ func executeWorkflowRuleMatching(err error, c client.Client) client.WorkflowRun 
 		TaskQueue: app.PostRuleMatchingTaskQueueName,
 	}
 
-	log.Printf("Start rule matching for Post '%s'", input)
-
+	log.Printf("Start rule matching for Post '%v'", input)
 	we, err := c.ExecuteWorkflow(context.Background(), options,
 		app.PostRuleMatching,
 		input, ruleStart, ruleEnd, ruleSplitSize)
