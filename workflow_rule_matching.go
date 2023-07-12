@@ -83,8 +83,8 @@ func PostRuleMatchingActivity(ctx context.Context, post BulletinBoardPost, taskK
 	currentProgress := dbClient.getProgress(taskKey)
 	ruleStartInclusive := currentProgress.HighWatermark
 
-	log.Printf(">> >> [Attempt: %d] Executing PostRuleMatchingActivity for Post %s for range %s starting from %d",
-		currentAttempt, post.Title, taskKey.getRangeString(), ruleStartInclusive)
+	log.Printf(">> >> [Key: %v, Attempt: %d] Executing PostRuleMatchingActivity for Post %s from %d",
+		taskKey, currentAttempt, post.Title, ruleStartInclusive)
 
 	for i := ruleStartInclusive; i < ruleEndExclusive; i += 1 {
 		if i%TaskProcessBatchSize == 0 {
@@ -99,21 +99,22 @@ func PostRuleMatchingActivity(ctx context.Context, post BulletinBoardPost, taskK
 				// The primary reason is that it can't forcibly stop the execution of arbitrary code.
 				// The StartToClose timeout in Temporal merely indicates to the Temporal service how long the activity is allowed to execute
 				// before it's considered failed due to timeout.
-				log.Printf(">> >> [Attempt: %d] Stopped execution from rule ID %d due to: %s",
-					currentAttempt, i, ctx.Err().Error())
-				return PostRuleMatchingActivityReturn{
+				log.Printf(">> >> [Key: %v, Attempt: %d] Stopped execution from rule ID %d due to: %s",
+					taskKey, currentAttempt, i, ctx.Err().Error())
+				activityReturn := PostRuleMatchingActivityReturn{
 					Key:      taskKey,
 					Progress: progress,
 					Status:   "Fail",
-				}, ctx.Err()
+				}
+				return activityReturn, ctx.Err()
 			}
 		}
 
 		// ToDo: implement actually processing logic here
 
-		// simulate random failure
+		// simulate matching work
 		if randomNumber := rand.Intn(100); randomNumber < 1 {
-			log.Printf(">> >> [Attempt: %d] Executing rule of ID %d", currentAttempt, i)
+			log.Printf(">> >> [Key: %v, Attempt: %d] Executing rule of ID %d", taskKey, currentAttempt, i)
 			time.Sleep(5 * time.Second)
 		}
 	}
@@ -184,7 +185,7 @@ func PostRuleMatching(ctx workflow.Context, input BulletinBoardPost,
 	activityOptions := workflow.ActivityOptions{
 		StartToCloseTimeout: 10 * time.Second,
 		RetryPolicy: &temporal.RetryPolicy{
-			MaximumAttempts: 4, // at most 4 runs, allowing retry for 3 times
+			MaximumAttempts: 2, // at most 2 runs, allowing retry for 1 time
 		},
 	}
 	ctx = workflow.WithActivityOptions(ctx, activityOptions)
@@ -212,6 +213,7 @@ func PostRuleMatching(ctx workflow.Context, input BulletinBoardPost,
 		if taskError == nil {
 			log.Printf(">> Activity execution completed successfully: %v", taskReturn)
 		} else {
+			log.Printf(">> Activity execution failed: %v", taskReturn)
 			matchingActivityFailures[taskReturn.Key] = taskError
 		}
 	}
