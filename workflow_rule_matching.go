@@ -20,7 +20,9 @@ type BulletinBoardPost struct {
 }
 
 type PostRuleMatchingActivityReturn struct {
-	StatusMessage string
+	Key      MatchingTaskKey
+	Progress MatchingTaskProgress
+	Status   string
 }
 
 const TaskProcessBatchSize = 10
@@ -89,7 +91,7 @@ func PostRuleMatchingActivity(ctx context.Context, post BulletinBoardPost, taskK
 			// Update activity state in DB
 			// Rule "I" hasn't been processed yet. If failed, the next retry should start from "I".
 			// This is the high watermark we need to track for current activity's rule range
-			dbClient.updateProgress(taskKey, i)
+			progress := dbClient.updateProgress(taskKey, i)
 
 			// It's inefficient to check ctx.Err() very frequently
 			if ctx.Err() != nil {
@@ -100,7 +102,9 @@ func PostRuleMatchingActivity(ctx context.Context, post BulletinBoardPost, taskK
 				log.Printf(">> >> [Attempt: %d] Stopped execution from rule ID %d due to: %s",
 					currentAttempt, i, ctx.Err().Error())
 				return PostRuleMatchingActivityReturn{
-					StatusMessage: fmt.Sprintf("%v failed. Progress: %d", taskKey, i),
+					Key:      taskKey,
+					Progress: progress,
+					Status:   "Fail",
 				}, ctx.Err()
 			}
 		}
@@ -117,7 +121,8 @@ func PostRuleMatchingActivity(ctx context.Context, post BulletinBoardPost, taskK
 	dbClient.completeTask(taskKey)
 
 	return PostRuleMatchingActivityReturn{
-		StatusMessage: fmt.Sprintf("%v succeeded. Starting Id is %d", taskKey, ruleStartInclusive),
+		Key:    taskKey,
+		Status: "Success",
 	}, nil
 }
 
@@ -160,11 +165,12 @@ func (c DBClient) getProgress(key MatchingTaskKey) MatchingTaskProgress {
 	return mockTasksTable[key]
 }
 
-func (c DBClient) updateProgress(key MatchingTaskKey, highWatermark int64) {
+func (c DBClient) updateProgress(key MatchingTaskKey, highWatermark int64) MatchingTaskProgress {
 	progress := mockTasksTable[key]
 	progress.HighWatermark = highWatermark
 	progress.UpdatedAt = time.Now().UTC().UnixMilli()
 	mockTasksTable[key] = progress
+	return progress
 }
 
 func (c DBClient) completeTask(key MatchingTaskKey) {
@@ -183,26 +189,38 @@ func PostRuleMatching(ctx workflow.Context, input BulletinBoardPost,
 	}
 	ctx = workflow.WithActivityOptions(ctx, activityOptions)
 
-	var taskReturn []MatchingTaskKey
+	var ruleSplits []MatchingTaskKey
 	taskError := workflow.ExecuteActivity(ctx, SplitRulesActivity, input.PostId,
-		ruleStartInclusive, ruleEndExclusive, ruleSplitSize).Get(ctx, &taskReturn)
+		ruleStartInclusive, ruleEndExclusive, ruleSplitSize).Get(ctx, &ruleSplits)
 	if taskError != nil {
 		return "SplitRulesActivity failed", taskError
 	}
-	log.Printf(">> Task splits are: %v", taskReturn)
+	log.Printf(">> Task splits are: %v", ruleSplits)
 
-	for _, task := range taskReturn {
-		log.Printf(">> Matching Post %s with rules %s", input.Title, task.getRangeString())
+	matchingActivityFutures := make([]workflow.Future, 0)
+	for _, task := range ruleSplits {
+		log.Printf(">> Submit matching for Post %s with rules %s", input.Title, task.getRangeString())
+		matchingActivityFutures = append(matchingActivityFutures,
+			workflow.ExecuteActivity(ctx, PostRuleMatchingActivity, input, task))
+	}
 
+	var matchingActivityFailures = make(map[MatchingTaskKey]error)
+	for _, future := range matchingActivityFutures {
 		var taskReturn PostRuleMatchingActivityReturn
-		taskError := workflow.ExecuteActivity(ctx, PostRuleMatchingActivity, input, task).Get(ctx, &taskReturn)
+		taskError := future.Get(ctx, &taskReturn)
 
 		if taskError == nil {
-			log.Printf(">> Activity execution completed with status: %v\n", taskReturn)
+			log.Printf(">> Activity execution completed successfully: %v", taskReturn)
 		} else {
-			log.Printf(">> Activity execution failed with error: %s\n", taskError.Error())
-			return taskReturn.StatusMessage, taskError
+			matchingActivityFailures[taskReturn.Key] = taskError
 		}
+	}
+
+	if len(matchingActivityFailures) > 0 {
+		for key, err := range matchingActivityFailures {
+			log.Printf(">> %v failed with error: %s", key, err.Error())
+		}
+		return "Failed", fmt.Errorf("%d rule matching activities failed", len(matchingActivityFailures))
 	}
 
 	log.Printf(">> Workflow completes. Unfinished tasks are: %v", mockTasksTable)
