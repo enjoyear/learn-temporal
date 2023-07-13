@@ -11,6 +11,10 @@ import (
 	"time"
 )
 
+// TODO:
+// 1. Monitoring for Temporal workflow failures
+// 2. Is it possible to dynamically scale the number of workers based on the task queue size
+
 type BulletinBoardPost struct {
 	PostId            int64
 	Title             string
@@ -85,6 +89,8 @@ func PostRuleMatchingActivity(ctx context.Context, post BulletinBoardPost, taskK
 
 	log.Printf(">> >> [Key: %v, Attempt: %d] Executing PostRuleMatchingActivity for Post %s from %d",
 		taskKey, currentAttempt, post.Title, ruleStartInclusive)
+
+	// return PostRuleMatchingActivityReturn{}, fmt.Errorf("hardcoded error")
 
 	for i := ruleStartInclusive; i < ruleEndExclusive; i += 1 {
 		if i%TaskProcessBatchSize == 0 {

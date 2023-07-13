@@ -27,7 +27,8 @@ func main() {
 	err = we.Get(context.Background(), &result)
 
 	if err != nil {
-		log.Fatalln(fmt.Sprintf("Workflow execution failed with result '%s'.", result), err)
+		// result isn't available in case of failures
+		log.Fatalln(fmt.Sprintf("Workflow execution failed with error: %v", err))
 	}
 
 	log.Println(result)
