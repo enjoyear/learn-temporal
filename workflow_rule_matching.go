@@ -101,12 +101,14 @@ func PostRuleMatchingActivity(ctx context.Context, post BulletinBoardPost, taskK
 				// before it's considered failed due to timeout.
 				log.Printf(">> >> [Key: %v, Attempt: %d] Stopped execution from rule ID %d due to: %s",
 					taskKey, currentAttempt, i, ctx.Err().Error())
-				activityReturn := PostRuleMatchingActivityReturn{
+
+				// If the Err is related to Activity timeout, the returned value won't be read by the
+				// Workflow because it thinks this Activity is already dead.
+				return PostRuleMatchingActivityReturn{
 					Key:      taskKey,
 					Progress: progress,
 					Status:   "Fail",
-				}
-				return activityReturn, ctx.Err()
+				}, ctx.Err()
 			}
 		}
 
@@ -198,23 +200,21 @@ func PostRuleMatching(ctx workflow.Context, input BulletinBoardPost,
 	}
 	log.Printf(">> Task splits are: %v", ruleSplits)
 
-	matchingActivityFutures := make([]workflow.Future, 0)
+	matchingActivityFutures := make(map[MatchingTaskKey]workflow.Future, 0)
 	for _, task := range ruleSplits {
 		log.Printf(">> Submit matching for Post %s with rules %s", input.Title, task.getRangeString())
-		matchingActivityFutures = append(matchingActivityFutures,
-			workflow.ExecuteActivity(ctx, PostRuleMatchingActivity, input, task))
+		matchingActivityFutures[task] = workflow.ExecuteActivity(ctx, PostRuleMatchingActivity, input, task)
 	}
 
 	var matchingActivityFailures = make(map[MatchingTaskKey]error)
-	for _, future := range matchingActivityFutures {
+	for key, future := range matchingActivityFutures {
 		var taskReturn PostRuleMatchingActivityReturn
 		taskError := future.Get(ctx, &taskReturn)
 
 		if taskError == nil {
-			log.Printf(">> Activity execution completed successfully: %v", taskReturn)
+			log.Printf(">> %v completed successfully", key)
 		} else {
-			log.Printf(">> Activity execution failed: %v", taskReturn)
-			matchingActivityFailures[taskReturn.Key] = taskError
+			matchingActivityFailures[key] = taskError
 		}
 	}
 
