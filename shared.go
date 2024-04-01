@@ -1,17 +1,3 @@
 package app
 
-// @@@SNIPSTART learn-temporal-shared-task-queue
-const MoneyTransferTaskQueueName = "TRANSFER_MONEY_TASK_QUEUE"
-const PostRuleMatchingTaskQueueName = "POST_RULE_MATCHING_TASK_QUEUE"
-
-// @@@SNIPEND
-
-// @@@SNIPSTART learn-temporal-transferdetails
-type PaymentDetails struct {
-	SourceAccount string
-	TargetAccount string
-	Amount        int
-	ReferenceID   string
-}
-
-// @@@SNIPEND
+const GreetingTaskQueue = "GREETING_TASK_QUEUE"

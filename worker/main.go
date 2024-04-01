@@ -10,39 +10,21 @@ import (
 )
 
 func main() {
-
+	// Create the client object just once per process
 	c, err := client.Dial(client.Options{})
 	if err != nil {
-		log.Fatalln("Unable to create Temporal client.", err)
+		log.Fatalln("unable to create Temporal client", err)
 	}
 	defer c.Close()
 
-	w := createPostRuleMatchingWorker(c)
+	// This worker hosts both Workflow and Activity functions
+	w := worker.New(c, app.GreetingTaskQueue, worker.Options{})
+	w.RegisterWorkflow(app.GreetingWorkflow)
+	w.RegisterActivity(app.ComposeGreeting)
 
-	// Start listening to the Task Queue.
+	// Start listening to the Task Queue
 	err = w.Run(worker.InterruptCh())
 	if err != nil {
 		log.Fatalln("unable to start Worker", err)
 	}
-}
-
-func createPostRuleMatchingWorker(c client.Client) worker.Worker {
-	w := worker.New(c, app.PostRuleMatchingTaskQueueName, worker.Options{})
-
-	// This worker hosts both Workflow and Activity functions.
-	w.RegisterWorkflow(app.PostRuleMatching)
-	w.RegisterActivity(app.SplitRulesActivity)
-	w.RegisterActivity(app.PostRuleMatchingActivity)
-	return w
-}
-
-func createMoneyTransferWorker(c client.Client) worker.Worker {
-	w := worker.New(c, app.MoneyTransferTaskQueueName, worker.Options{})
-
-	// This worker hosts both Workflow and Activity functions.
-	w.RegisterWorkflow(app.MoneyTransfer)
-	w.RegisterActivity(app.Withdraw)
-	w.RegisterActivity(app.Deposit)
-	w.RegisterActivity(app.Refund)
-	return w
 }
