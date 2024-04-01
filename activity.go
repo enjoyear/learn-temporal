@@ -6,7 +6,7 @@ import (
 )
 
 func ComposeGreeting(ctx context.Context, name string) (string, error) {
-	println("Got activity request with name: " + name)
+	println("Start golang activity with parameter: " + name)
 	greeting := fmt.Sprintf("Hello %s!", name)
 	return greeting, nil
 }

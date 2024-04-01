@@ -16,3 +16,4 @@
 
 # IDE dirs
 .idea/
+python-workers/__pycache__
